@@ -9,7 +9,7 @@ CELL_SIZE = 60
 # File paths
 CONFIG_FILE = Path("data/layouts/numpad_layout.json")
 MACRO_FILE = Path("data/macros.json")
-RAWINPUTHANDLER_FILE = Path("CSDeviceListener/RawInputListener/RawInputListener/bin/Debug/net8.0-windows/RawInputListener.exe")
+LISTENER_FILE = Path("RawInputListener/RawInputListener/bin/Debug/net8.0-windows/RawInputListener.exe")
 
 SETTINGS_FILE = Path("data/settings.json")
 

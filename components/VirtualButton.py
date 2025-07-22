@@ -8,8 +8,11 @@ class VirtualButton:
 
         self.mapped_key = None
 
-        # Store device info as a dict with vendor_id, product_id, serial_number
-        self.mapped_device = None  # Example: {"vendor_id": 1234, "product_id": 5678, "serial_number": "XYZ123"}
+        # Legacy support (optional): still store vendor_id/product_id/serial_number
+        self.mapped_device = None  # Dictionary with optional fields
+
+        # NEW: Device path string (used for filtering raw input)
+        self.device_path = None
 
         self.assigned_macro_id = None
         self.assigned_macro_name = None
@@ -25,7 +28,8 @@ class VirtualButton:
             "row_span": self.row_span,
             "col_span": self.col_span,
             "mapped_key": self.mapped_key,
-            "mapped_device": self.mapped_device,  # Stored as a serializable dict
+            "mapped_device": self.mapped_device,
+            "device_path": self.device_path,
             "assigned_macro_id": self.assigned_macro_id,
             "assigned_macro_name": self.assigned_macro_name,
             "turbo_enabled": self.turbo_enabled,
@@ -42,7 +46,8 @@ class VirtualButton:
             d.get("col_span", 1)
         )
         vb.mapped_key = d.get("mapped_key")
-        vb.mapped_device = d.get("mapped_device")  # Should be a dict like {"vendor_id": ..., ...}
+        vb.mapped_device = d.get("mapped_device")
+        vb.device_path = d.get("device_path")
         vb.assigned_macro_id = d.get("assigned_macro_id")
         vb.assigned_macro_name = d.get("assigned_macro_name")
         vb.turbo_enabled = d.get("turbo_enabled", False)
@@ -53,20 +58,12 @@ class VirtualButton:
         return (self.start_row <= row < self.start_row + self.row_span) and \
                (self.start_col <= col < self.start_col + self.col_span)
 
-    def set_mapped_device_from_pywinusb(self, device):
-        """Set mapped_device from a pywinusb device object."""
-        self.mapped_device = {
-            "vendor_id": device.vendor_id,
-            "product_id": device.product_id,
-            "serial_number": device.serial_number or "NO_SERIAL"
-        }
+    def set_mapped_device_path(self, path):
+        """Set device path from raw input event (C# side)."""
+        self.device_path = path
 
-    def device_matches(self, device):
-        """Check if a pywinusb device matches the mapped one."""
-        if not self.mapped_device:
+    def device_matches(self, device_path):
+        """Check if given device path matches the stored one."""
+        if not self.device_path:
             return False
-        return (
-            device.vendor_id == self.mapped_device["vendor_id"] and
-            device.product_id == self.mapped_device["product_id"] and
-            (device.serial_number or "NO_SERIAL") == self.mapped_device["serial_number"]
-        )
+        return self.device_path == device_path

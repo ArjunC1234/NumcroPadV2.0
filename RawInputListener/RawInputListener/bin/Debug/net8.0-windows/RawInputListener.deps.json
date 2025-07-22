@@ -1,0 +1,41 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v8.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v8.0": {
+      "RawInputListener/1.0.0": {
+        "dependencies": {
+          "RawInput.Sharp": "0.1.3"
+        },
+        "runtime": {
+          "RawInputListener.dll": {}
+        }
+      },
+      "RawInput.Sharp/0.1.3": {
+        "runtime": {
+          "lib/net7.0/RawInput.Sharp.dll": {
+            "assemblyVersion": "0.0.0.0",
+            "fileVersion": "0.0.0.0"
+          }
+        }
+      }
+    }
+  },
+  "libraries": {
+    "RawInputListener/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "RawInput.Sharp/0.1.3": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-NSDy0QP+XAucd5n7x8NeS2f0MVjEBAqlQ/0XpJ8IjgfRyOoKUKmNHvkN02XkhxV8tqAOPDBB8C36AjFm1Gq92w==",
+      "path": "rawinput.sharp/0.1.3",
+      "hashPath": "rawinput.sharp.0.1.3.nupkg.sha512"
+    }
+  }
+}

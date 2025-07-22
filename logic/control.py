@@ -56,13 +56,16 @@ def map_physical_key(parent):
     sel = parent.table.selectedRanges()
     if not sel:
         return
+
     row = sel[0].topRow()
     col = sel[0].leftColumn()
+
     for vb in parent.virtual_buttons:
-        if row == vb.start_row and col == vb.start_col:
-            parent.info_label.setText("Press a key on an allowed device to map to this button...")
-            # Pass selected devices to listener
-            threading.Thread(target=live_logic.listen_for_key, args=(parent,vb), daemon=True).start()
+        if vb.start_row == row and vb.start_col == col:
+            parent.mapping_key_process = True
+            parent.mapping_target = vb  # So on_raw_input knows what to map
+            parent.info_label.setText("Press any key to map it to this virtual button...")
+            return
 
 def delete_virtual_button(parent):
     sel = parent.table.selectedRanges()

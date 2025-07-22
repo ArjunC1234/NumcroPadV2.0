@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "dgSpecHash": "DLJIFMJvueg=",
+  "success": true,
+  "projectFilePath": "C:\\Users\\Arjun\\OneDrive\\Documents\\GitHub\\NumcroPadV2.0\\RawInputListener\\RawInputListener\\RawInputListener.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\Arjun\\.nuget\\packages\\rawinput.sharp\\0.1.3\\rawinput.sharp.0.1.3.nupkg.sha512"
+  ],
+  "logs": []
+}

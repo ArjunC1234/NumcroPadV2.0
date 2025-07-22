@@ -84,6 +84,7 @@ def handle_cell_click(parent, row, col):
     if not found:
         parent.selected_vb = None
         parent.key_name_label.setText("Key: None")
+        parent.device_label.setText("Device: None")
         parent.macro_combo.setCurrentIndex(0)
 
         parent.turbo_checkbox.blockSignals(True)

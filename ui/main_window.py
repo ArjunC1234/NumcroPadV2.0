@@ -5,7 +5,7 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtNetwork import QLocalServer
 from PyQt5.QtCore import pyqtSignal, Qt, QTimer, QEvent,  QDataStream, QDateTime
 from PyQt5.QtGui import QIcon
-from constants import CELL_SIZE, UNIQUE_APP_ID
+from constants import CELL_SIZE, LISTENER_FILE, UNIQUE_APP_ID
 
 from ui.menu_bar import setup_menu_bar
 from ui.vcontrols_layout import setup_vcontrols_layout
@@ -20,7 +20,7 @@ import logic.live as live_logic
 import logic.menu as menu_logic
 import logic.data as data_logic
 
-
+from components.RawInputReceiver import RawInputReceiver
 class MainWindow(QMainWindow):
     highlight_signal = pyqtSignal(object, bool)  # vb, highlight_on_or_off
     key_mapped_signal = pyqtSignal()
@@ -40,6 +40,9 @@ class MainWindow(QMainWindow):
         self.tray_mode = tray_mode
         self.tray_icon = None
         self.settings = data_logic.load_settings(self)
+        self.mapping_key_process = False
+        self.pressed_keys=set()
+        self.mapping_target = None  # So on_raw_input knows what to map
 
         self._init_ui()
         self._init_logic()
@@ -84,6 +87,9 @@ class MainWindow(QMainWindow):
         
 
     def _init_logic(self):
+
+        if self.tray_mode:
+            self.init_tray_icon()
         
         self.row_spinbox.valueChanged.connect(lambda: table_logic.update_grid_size(self))
         self.col_spinbox.valueChanged.connect(lambda: table_logic.update_grid_size(self))
@@ -94,6 +100,11 @@ class MainWindow(QMainWindow):
         self.btn_unmap_key.clicked.connect(lambda: control_logic.unmap_physical_key(self))
         self.zoom_in_button.clicked.connect(lambda: control_logic.adjust_zoom(self, 1.1))
         self.zoom_out_button.clicked.connect(lambda: control_logic.adjust_zoom(self, 0.9))
+
+        self.turbo_checkbox.stateChanged.connect(lambda: macro_logic.on_turbo_toggled(self))
+        self.turbo_delay_spinbox.valueChanged.connect(lambda: macro_logic.on_turbo_delay_changed(self))
+        self.macro_combo.currentIndexChanged.connect(lambda: macro_logic.assign_macro_to_selected(self))
+
 
         self.logs_groupbox.toggled.connect(lambda checked: control_logic.toggle_logs_visibility(self, checked))
 
@@ -107,16 +118,20 @@ class MainWindow(QMainWindow):
         self.action_run_bg.triggered.connect(lambda: menu_logic.run_current_layout_in_background(self))
         self.choose_startup_action.triggered.connect(lambda: menu_logic.choose_startup_layout(self))
 
-        self.device_filtering_action.triggered.connect(lambda checked: menu_logic.on_device_filtering_toggled(self, checked))
+        self.device_filtering_action.toggled.connect(lambda checked: menu_logic.on_device_filtering_toggled(self, checked))
+        
+        
+        self.highlight_signal.connect(lambda vb, highlight_on: table_logic.set_button_highlight(self, vb, highlight_on))
+        self.table.cellClicked.connect(lambda row, col: table_logic.handle_cell_click(self, row, col))
+        self.key_mapped_signal.connect(lambda: table_logic.update_table(self))
 
-        if self.tray_mode:
-            self.init_tray_icon()
+        self.receiver = RawInputReceiver(LISTENER_FILE)
+        self.receiver.linkOnInput(lambda event: live_logic.on_raw_input(self, event))
+        self.receiver.start()
 
         QTimer.singleShot(0, lambda: self.view.centerOn(self.proxy))
         menu_logic.update_startup_menu_checkmark(self)
         table_logic.update_grid_size(self)
-
-
 
 
     def log_message(self, message):
@@ -221,6 +236,8 @@ class MainWindow(QMainWindow):
         elif msg.clickedButton() == close_button:
             if self.tray_icon:
                 self.tray_icon.hide()
-            event.accept()
+            if hasattr(self, "receiver"):
+                self.receiver.stop()
+            super().closeEvent(event)
         else:
             event.ignore()

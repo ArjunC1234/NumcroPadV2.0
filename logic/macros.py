@@ -66,7 +66,7 @@ def assign_macro_to_selected(parent, index):
 def update_macro_info(parent, vb):
     parent.selected_vb = vb
     parent.key_name_label.setText(f"Key: {vb.mapped_key if vb.mapped_key else 'None'}")
-
+    parent.device_label.setText(f"Device: {vb.mapped_device["name"] if vb.mapped_device else 'None'}")
     if vb.assigned_macro_id:
         idx = parent.macro_combo.findData(vb.assigned_macro_id)
         if idx != -1:

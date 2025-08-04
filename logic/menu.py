@@ -80,13 +80,13 @@ def load_layout(parent, layout_data, file_path):
     parent.col_spinbox.setValue(cols)
 
     parent.virtual_buttons = [VirtualButton.from_dict(d) for d in layout_data.get("virtual_buttons", [])]
-    table_logic.update_table()
-    table_logic.update_grid_size()
+    table_logic.update_table(parent)
+    table_logic.update_grid_size(parent)
     parent.current_layout_file = file_path
     parent.statusBar().showMessage(f"Loaded layout from {file_path}", 3000)
 
 def open_layout(parent):
-    default_dir = str(CONFIG_FILE.parent) if CONFIG_FILE.exists() else ""
+    default_dir = str(CONFIG_FILE) if CONFIG_FILE.exists() else ""
     file_path, _ = QFileDialog.getOpenFileName(
         parent, "Open Layout", default_dir, "JSON Files (*.json)"
     )

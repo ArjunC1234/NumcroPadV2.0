@@ -3,7 +3,7 @@ from PyQt5.QtWidgets import (
     QMenu, QAction, QApplication, QMessageBox
 )
 from PyQt5.QtNetwork import QLocalServer
-from PyQt5.QtCore import pyqtSignal, Qt, QTimer, QEvent,  QDataStream, QDateTime
+from PyQt5.QtCore import pyqtSignal, Qt, QTimer, QEvent, QDataStream, QDateTime
 from PyQt5.QtGui import QIcon
 from constants import CELL_SIZE, LISTENER_FILE, UNIQUE_APP_ID
 
@@ -21,9 +21,12 @@ import logic.menu as menu_logic
 import logic.data as data_logic
 
 from components.RawInputReceiver import RawInputReceiver
+
+
 class MainWindow(QMainWindow):
     highlight_signal = pyqtSignal(object, bool)  # vb, highlight_on_or_off
     key_mapped_signal = pyqtSignal()
+    update_info_label = pyqtSignal(str)
 
     def __init__(self, tray_mode=False):
         super().__init__()
@@ -41,35 +44,27 @@ class MainWindow(QMainWindow):
         self.tray_icon = None
         self.settings = data_logic.load_settings(self)
         self.mapping_key_process = False
-        self.pressed_keys=set()
-        self.mapping_target = None  # So on_raw_input knows what to map
+        self.pressed_keys = set()
+        self.mapping_target = None
 
         self._init_ui()
         self._init_logic()
 
     def _init_ui(self):
-
-        # menu bar setup
         setup_menu_bar(self)
-
-        # table view setup
         setup_table_view(self)
-
-        # logs box setup
         setup_logs_groupbox(self)
 
-        # Layout Assembly
         main_layout = QHBoxLayout()
 
-        # Table view layout (controls + table)
         table_layout = QVBoxLayout()
-        table_layout.addLayout(setup_vcontrols_layout(self)) # adding vertical controls layout
-        table_layout.addWidget(self.view) # adding table view (pannable graphics)
+        table_layout.addLayout(setup_vcontrols_layout(self))
+        table_layout.addWidget(self.view)
         table_layout.setAlignment(Qt.AlignTop)
 
         left_panel = QVBoxLayout()
         left_panel.addLayout(table_layout)
-        left_panel.addWidget(self.logs_groupbox) # adding logs groupbox
+        left_panel.addWidget(self.logs_groupbox)
         left_panel.setStretch(0, 7)
         left_panel.setStretch(1, 3)
 
@@ -83,72 +78,58 @@ class MainWindow(QMainWindow):
         container.setContentsMargins(10, 10, 10, 10)
         self.setCentralWidget(container)
 
-        
-        
-
     def _init_logic(self):
-
         if self.tray_mode:
             self.init_tray_icon()
-        
+
         self.row_spinbox.valueChanged.connect(lambda: table_logic.update_grid_size(self))
         self.col_spinbox.valueChanged.connect(lambda: table_logic.update_grid_size(self))
-
         self.btn_create_button.clicked.connect(lambda: control_logic.create_virtual_button(self))
         self.btn_delete.clicked.connect(lambda: control_logic.delete_virtual_button(self))
         self.btn_map_key.clicked.connect(lambda: control_logic.map_physical_key(self))
         self.btn_unmap_key.clicked.connect(lambda: control_logic.unmap_physical_key(self))
         self.zoom_in_button.clicked.connect(lambda: control_logic.adjust_zoom(self, 1.1))
         self.zoom_out_button.clicked.connect(lambda: control_logic.adjust_zoom(self, 0.9))
-
         self.turbo_checkbox.stateChanged.connect(lambda: macro_logic.on_turbo_toggled(self))
         self.turbo_delay_spinbox.valueChanged.connect(lambda: macro_logic.on_turbo_delay_changed(self))
         self.macro_combo.currentIndexChanged.connect(lambda: macro_logic.assign_macro_to_selected(self))
-
-
         self.logs_groupbox.toggled.connect(lambda checked: control_logic.toggle_logs_visibility(self, checked))
-
         self.action_save.triggered.connect(lambda: menu_logic.save_layout(self))
         self.action_save_as.triggered.connect(lambda: menu_logic.save_layout_as(self))
         self.action_open.triggered.connect(lambda: menu_logic.open_layout(self))
         self.action_new.triggered.connect(lambda: menu_logic.create_new_layout(self))
-
         self.action_macro_mgr.triggered.connect(lambda: menu_logic.open_macro_manager(self))
-
         self.action_run_bg.triggered.connect(lambda: menu_logic.run_current_layout_in_background(self))
         self.choose_startup_action.triggered.connect(lambda: menu_logic.choose_startup_layout(self))
-
         self.device_filtering_action.toggled.connect(lambda checked: menu_logic.on_device_filtering_toggled(self, checked))
-        
-        
+
         self.highlight_signal.connect(lambda vb, highlight_on: table_logic.set_button_highlight(self, vb, highlight_on))
         self.table.cellClicked.connect(lambda row, col: table_logic.handle_cell_click(self, row, col))
         self.key_mapped_signal.connect(lambda: table_logic.update_table(self))
+        self.update_info_label.connect(self.info_label.setText)
 
-        self.receiver = RawInputReceiver(LISTENER_FILE)
-        self.receiver.linkOnInput(lambda event: live_logic.on_raw_input(self, event))
+        # --- RawInputReceiver Setup ---
+        self.receiver = RawInputReceiver(listen_port=5005)
+        self.receiver.raw_input_signal.connect(lambda event: live_logic.on_raw_input(self, event))
+        self.receiver.status_signal.connect(lambda msg: self.update_info_label.emit(msg))
         self.receiver.start()
 
         QTimer.singleShot(0, lambda: self.view.centerOn(self.proxy))
         menu_logic.update_startup_menu_checkmark(self)
         table_logic.update_grid_size(self)
 
-
     def log_message(self, message):
         timestamp = QDateTime.currentDateTime().toString("hh:mm:ss")
         self.log_output.append(f"[{timestamp}] {message}")
 
-
-
     def init_tray_icon(self):
-        if self.tray_icon:  # Prevent multiple icons
+        if self.tray_icon:
             return
 
         self.tray_icon = QSystemTrayIcon(self)
         self.tray_icon.setIcon(QIcon("./assets/BigLogo.png"))
 
         tray_menu = QMenu()
-
         restore_action = QAction("Restore", self)
         restore_action.triggered.connect(self.show_normal_window)
         tray_menu.addAction(restore_action)
@@ -170,7 +151,6 @@ class MainWindow(QMainWindow):
             if not self.local_server.listen(UNIQUE_APP_ID):
                 print("❌ Failed to listen again after removing server.")
                 return
-
         print("🟢 Instance listener running...")
         self.local_server.newConnection.connect(self.handle_new_instance_connection)
 
@@ -185,14 +165,11 @@ class MainWindow(QMainWindow):
 
     def show_normal_window(self):
         if self.isMinimized():
-            self.setWindowState(self.windowState() & ~Qt.WindowMinimized)  # Restore window if minimized
+            self.setWindowState(self.windowState() & ~Qt.WindowMinimized)
         self.show()
         self.raise_()
-        
-        # Only activate window if it doesn't have focus already
         if not self.isActiveWindow():
             self.activateWindow()
-
 
     def on_tray_icon_activated(self, reason):
         if reason == QSystemTrayIcon.Trigger:
@@ -223,7 +200,6 @@ class MainWindow(QMainWindow):
         if msg.clickedButton() == minimize_button:
             if not self.tray_icon:
                 self.init_tray_icon()
-
             self.hide()
             self.tray_icon.showMessage(
                 "Numcro Pad",
@@ -232,7 +208,6 @@ class MainWindow(QMainWindow):
                 3000
             )
             event.ignore()
-
         elif msg.clickedButton() == close_button:
             if self.tray_icon:
                 self.tray_icon.hide()

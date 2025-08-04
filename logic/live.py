@@ -63,31 +63,63 @@ def run_macro(parent, macro_id):
 
 def on_raw_input(parent, event):
     """
-    Handles raw input events. Captures one key if mapping is active,
-    otherwise runs turbo/macro logic as normal.
+    Handles raw input events received from the Raspberry Pi broadcaster.
+    Captures one key if mapping is active, otherwise runs turbo/macro logic as normal.
     """
-    key = event.get("keyName", "").lower()
-    event_type = event.get("eventType")
-    device_path = event.get("device")
-    device_name = event.get("product", "Unknown Device")
+
+    print(event)
+    # --- IMPORTANT: Adapt to the new JSON structure from Raspberry Pi ---
+    # The Pi script sends: {"device": {...}, "event": {...}}
+    # We need to extract data from the 'event' and 'device' sub-dictionaries.
+
+    # Extract event details
+    event_details = event.get("event", {})
+    key = event_details.get("keyname", "").lower()
+    event_action = event_details.get("action") # This will be "press", "release", "hold", "move", etc.
+
+    # Extract device details
+    device_info = event.get("device", {})
+    # For device_path, we need a unique identifier. A combination of VID, PID, and Product Name is good.
+    # If VID/PID are still null, just use product_name.
+    device_vid = device_info.get("vid", "unknown_vid")
+    device_pid = device_info.get("pid", "unknown_pid")
+    device_product_name = device_info.get("product_name", "Unknown Device").replace(" ", "_").replace("-", "_") # Sanitize for path-like use
+
+    # Create a unique device identifier string for mapping/filtering
+    # This will look like "046d_c077_Logitech_USB_Receiver" or "unknown_vid_unknown_pid_Unknown_Device"
+    device_path_identifier = f"{device_vid}_{device_pid}_{device_product_name}"
+    device_display_name = device_info.get("product_name", "Unknown Device") # For user-friendly display
+
+    # --- End of Adaptation ---
+
 
     # -- KEY MAPPING MODE (capture one key and exit) --
     if parent.mapping_key_process:
-        parent.mapping_key_process = False  # disable mapping mode after first event
+        # We only want to capture actual key presses/releases, not movements or other event types
+        if event_action not in ["press", "release"]:
+            print(f"Skipping non-key event during mapping: {event_action}")
+            return
+
+        parent.mapping_key_process = False  # disable mapping mode after first *valid* event
 
         vb = getattr(parent, "mapping_target", None)
         if vb is None:
-            parent.info_label.setText("Error: No virtual button selected for mapping.")
+            parent.update_info_label.emit("Error: No virtual button selected for mapping.")
             return
 
         vb.mapped_key = key
-        vb.set_mapped_device_path(device_path)
+        # Store the unique device identifier
+        vb.set_mapped_device_path(device_path_identifier)
 
         # Save the device name for debug/display purposes
-        vb.mapped_device = {"name": device_name}
+        vb.mapped_device = {"name": device_display_name} # Store the user-friendly name
 
-        parent.info_label.setText(f"Mapped '{key}' from '{device_name}' to virtual button '{vb.name}'.")
+        parent.update_info_label.emit(f"Mapped '{key}' from '{device_display_name}' to virtual button '{vb.name}'.")
         parent.mapping_target = None
+        # Assuming macro_logic.update_macro_info exists and is accessible
+        # You might need to adjust this call if macro_logic is not directly available
+        # or if it expects a different object.
+        # For now, assuming it's imported or passed correctly.
         macro_logic.update_macro_info(parent, vb)
         parent.key_mapped_signal.emit()
         return
@@ -101,10 +133,11 @@ def on_raw_input(parent, event):
         if vb.mapped_key != key:
             continue
 
+        # Device filtering based on the new unique identifier
         if parent.settings.get("device_filtering", False):
-            if not vb.device_path:
-                continue
-            if vb.device_path != device_path:
+            if not vb.device_path: # If a VB has no device path mapped, it matches any device if filtering is off
+                continue # If filtering is on, and no device path is mapped, it won't match.
+            if vb.device_path != device_path_identifier: # Compare with the new unique identifier
                 continue
 
         matched_vbs.append(vb)
@@ -112,7 +145,8 @@ def on_raw_input(parent, event):
     if not matched_vbs:
         return
 
-    if event_type == "down":
+    # Use event_action ("press", "release") instead of "down"/"up"
+    if event_action == "press":
         if key in parent.pressed_keys:
             return
         parent.pressed_keys.add(key)
@@ -124,12 +158,13 @@ def on_raw_input(parent, event):
                 if not hasattr(parent, "turbo_threads"):
                     parent.turbo_threads = {}
 
-                def turbo_runner(vb, stop_event):
-                    delay = vb.turbo_delay_ms / 1000.0
-                    while not stop_event.is_set():
-                        if vb.assigned_macro_id:
-                            run_macro(parent, vb.assigned_macro_id)
-                        if stop_event.wait(delay):
+                def turbo_runner(vb_obj, stop_event_obj): # Renamed args to avoid confusion with outer scope
+                    delay = vb_obj.turbo_delay_ms / 1000.0
+                    while not stop_event_obj.is_set():
+                        if vb_obj.assigned_macro_id:
+                            # Assuming run_macro is accessible
+                            run_macro(parent, vb_obj.assigned_macro_id)
+                        if stop_event_obj.wait(delay):
                             break
 
                 stop_event = threading.Event()
@@ -138,9 +173,10 @@ def on_raw_input(parent, event):
                 thread.start()
 
             elif vb.assigned_macro_id:
+                # Assuming run_macro is accessible
                 run_macro(parent, vb.assigned_macro_id)
 
-    elif event_type == "up":
+    elif event_action == "release":
         if key in parent.pressed_keys:
             parent.pressed_keys.remove(key)
 

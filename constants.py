@@ -7,7 +7,7 @@ GRID_COLS = 5
 CELL_SIZE = 60
 
 # File paths
-CONFIG_FILE = Path("data/layouts/numpad_layout.json")
+CONFIG_FILE = Path("data/layouts/")
 MACRO_FILE = Path("data/macros.json")
 LISTENER_FILE = Path("RawInputListener/RawInputListener/bin/Debug/net8.0-windows/RawInputListener.exe")
 
